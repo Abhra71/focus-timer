@@ -1,0 +1,1445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#0a0a0a" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black" />
+  <link rel="manifest" href="manifest.json" />
+  <title>FocusTrap</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:        #0a0a0a;
+      --surface:   #141414;
+      --surface2:  #1c1c1c;
+      --border:    #2a2a2a;
+      --text:      #e0e0e0;
+      --text-dim:  #888;
+      --text-faint:#444;
+      --accent:    #4fc3f7;
+      --accent-dim:#1a7a9a;
+      --danger:    #f08080;
+      --warn:      #f0c060;
+      --radius:    10px;
+      --radius-sm: 6px;
+      --font:      -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+    html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--font); font-size: 15px; line-height: 1.5; -webkit-font-smoothing: antialiased; overflow: hidden; }
+    #app { display: flex; flex-direction: column; height: 100vh; max-width: 480px; margin: 0 auto; position: relative; overflow: hidden; }
+    .screen { display: none; flex-direction: column; flex: 1; overflow-y: auto; overflow-x: hidden; padding-bottom: 72px; -webkit-overflow-scrolling: touch; }
+    .screen.active { display: flex; }
+    #nav { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 480px; display: flex; background: var(--surface); border-top: 1px solid var(--border); z-index: 100; }
+    .nav-btn { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 10px 0 12px; background: none; border: none; color: var(--text-dim); font-size: 10px; letter-spacing: 0.5px; text-transform: uppercase; cursor: pointer; gap: 4px; transition: color 0.15s; }
+    .nav-btn.active { color: var(--accent); }
+    .nav-btn svg { width: 20px; height: 20px; }
+    .screen-header { padding: 20px 20px 0; display: flex; align-items: center; justify-content: space-between; }
+    .screen-title { font-size: 13px; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase; color: var(--text-dim); }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; margin: 12px 16px 0; }
+    .card-label { font-size: 11px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; color: var(--text-dim); margin-bottom: 10px; }
+    #timer-mode-row { display: flex; gap: 8px; margin: 20px 16px 0; }
+    .mode-btn { flex: 1; padding: 10px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-dim); font-size: 12px; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; cursor: pointer; transition: all 0.15s; }
+    .mode-btn.active { background: var(--surface2); border-color: var(--accent-dim); color: var(--accent); }
+    #timer-display-card { margin: 12px 16px 0; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 32px 16px 24px; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+    #phase-label { font-size: 11px; font-weight: 600; letter-spacing: 2px; text-transform: uppercase; color: var(--text-dim); }
+    #timer-clock { font-size: 72px; font-weight: 200; letter-spacing: -2px; color: var(--text); font-variant-numeric: tabular-nums; line-height: 1; }
+    #round-label { font-size: 12px; color: var(--text-faint); letter-spacing: 0.5px; }
+    #pomo-rounds { display: flex; gap: 6px; justify-content: center; }
+    .round-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--border); transition: background 0.2s; }
+    .round-dot.done { background: var(--accent); }
+    .round-dot.current { background: var(--accent-dim); }
+    #timer-progress-wrap { width: 100%; height: 2px; background: var(--border); border-radius: 2px; margin-top: 16px; overflow: hidden; }
+    #timer-progress-bar { height: 100%; background: var(--accent); border-radius: 2px; width: 0%; transition: width 1s linear; }
+    #distraction-wrap { display: none; width: 100%; margin-top: 12px; flex-direction: column; align-items: center; gap: 4px; }
+    #distraction-wrap.visible { display: flex; }
+    #btn-distract { width: 100%; padding: 11px; background: var(--surface2); border: 1px dashed var(--border); border-radius: var(--radius-sm); color: var(--text-dim); font-size: 12px; font-weight: 600; letter-spacing: 0.5px; cursor: pointer; transition: all 0.15s; }
+    #btn-distract:active { border-color: var(--danger); color: var(--danger); }
+    #distract-count-lbl { font-size: 10px; color: var(--text-faint); letter-spacing: 0.5px; }
+    #timer-controls { display: flex; gap: 10px; margin: 12px 16px 0; }
+    .ctrl-btn { flex: 1; padding: 14px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: 13px; font-weight: 600; letter-spacing: 0.5px; cursor: pointer; transition: all 0.15s; }
+    .ctrl-btn:active { opacity: 0.7; }
+    .ctrl-btn.primary { background: var(--accent); color: #0a0a0a; border-color: var(--accent); flex: 2; }
+    .ctrl-btn.danger { border-color: var(--danger); color: var(--danger); }
+    .select-field, .input-field { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); font-size: 14px; padding: 10px 12px; font-family: var(--font); appearance: none; -webkit-appearance: none; }
+    .select-field:focus, .input-field:focus { outline: none; border-color: var(--accent-dim); }
+    .select-wrap { position: relative; }
+    .select-wrap::after { content: '▾'; position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: var(--text-dim); pointer-events: none; font-size: 12px; }
+    .tab-row { display: flex; gap: 6px; margin: 16px 16px 0; }
+    .tab-btn { flex: 1; padding: 8px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-dim); font-size: 11px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; cursor: pointer; transition: all 0.15s; }
+    .tab-btn.active { background: var(--surface2); border-color: var(--accent-dim); color: var(--accent); }
+    .chart-toggle { display: flex; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; margin-bottom: 10px; }
+    .chart-toggle-btn { flex: 1; padding: 5px 10px; font-size: 10px; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; background: none; border: none; color: var(--text-dim); cursor: pointer; transition: all 0.15s; }
+    .chart-toggle-btn.active { background: var(--surface); color: var(--accent); }
+    .chart-subj-select { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); font-size: 12px; padding: 5px 28px 5px 10px; font-family: var(--font); appearance: none; -webkit-appearance: none; margin-bottom: 10px; display: none; }
+    .chart-subj-select.visible { display: block; }
+    .stat-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 12px 16px 0; }
+    .stat-block { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 14px 12px; }
+    .stat-block .val { font-size: 26px; font-weight: 200; color: var(--text); line-height: 1; }
+    .stat-block .val-sm { font-size: 16px; font-weight: 400; color: var(--text); line-height: 1.3; }
+    .stat-block .lbl { font-size: 10px; font-weight: 600; letter-spacing: 0.8px; text-transform: uppercase; color: var(--text-dim); margin-top: 4px; }
+    .chart-wrap { position: relative; width: 100%; }
+    .chart-wrap canvas { display: block; width: 100% !important; }
+    #heatmap-grid { display: grid; grid-template-columns: repeat(24, 1fr); gap: 2px; margin-top: 8px; }
+    .hm-cell { aspect-ratio: 1; border-radius: 2px; background: var(--surface2); }
+    .hm-hours { display: flex; justify-content: space-between; margin-top: 4px; }
+    .hm-hour-lbl { font-size: 9px; color: var(--text-faint); }
+    #peak-hour-line { font-size: 12px; color: var(--text-dim); margin-top: 8px; text-align: center; }
+    .completion-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+    .completion-subject { font-size: 12px; color: var(--text-dim); width: 90px; flex-shrink: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .completion-bar-wrap { flex: 1; height: 6px; background: var(--surface2); border-radius: 3px; overflow: hidden; }
+    .completion-bar-fill { height: 100%; background: var(--accent); border-radius: 3px; }
+    .completion-pct { font-size: 12px; color: var(--text-dim); width: 36px; text-align: right; flex-shrink: 0; }
+    .target-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+    .target-subject { font-size: 12px; color: var(--text-dim); width: 90px; flex-shrink: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .target-bar-wrap { flex: 1; height: 6px; background: var(--surface2); border-radius: 3px; overflow: hidden; }
+    .target-bar-fill { height: 100%; background: var(--accent-dim); border-radius: 3px; transition: width 0.3s; }
+    .target-bar-fill.hit { background: var(--accent); }
+    .target-pct { font-size: 11px; color: var(--text-dim); width: 52px; text-align: right; flex-shrink: 0; }
+    .settings-group { margin: 16px 16px 0; }
+    .settings-group-label { font-size: 11px; font-weight: 600; letter-spacing: 1.2px; text-transform: uppercase; color: var(--text-dim); margin-bottom: 8px; }
+    .setting-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); margin-bottom: 6px; }
+    .setting-row-label { font-size: 13px; color: var(--text); }
+    .setting-row-sub { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+    .num-input { width: 56px; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); font-size: 14px; font-family: var(--font); padding: 6px 8px; text-align: center; }
+    .num-input:focus { outline: none; border-color: var(--accent-dim); }
+    #subject-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+    .subject-chip { display: flex; align-items: center; gap: 6px; padding: 6px 10px; background: var(--surface2); border: 1px solid var(--border); border-radius: 20px; font-size: 12px; color: var(--text); }
+    .chip-del { background: none; border: none; color: var(--text-faint); cursor: pointer; font-size: 14px; line-height: 1; padding: 0; }
+    .chip-del:hover { color: var(--danger); }
+    #add-subject-row { display: flex; gap: 8px; margin-top: 10px; }
+    .small-btn { padding: 8px 14px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); font-size: 13px; cursor: pointer; white-space: nowrap; }
+    .small-btn:hover { border-color: var(--accent-dim); color: var(--accent); }
+    .target-setting-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+    .target-setting-label { flex: 1; font-size: 13px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .target-setting-unit { font-size: 11px; color: var(--text-dim); }
+    .target-del-btn { background: none; border: none; color: var(--text-faint); cursor: pointer; font-size: 16px; padding: 0 4px; }
+    .target-del-btn:hover { color: var(--danger); }
+    .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 200; align-items: flex-end; justify-content: center; }
+    .overlay.open { display: flex; }
+    .modal { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius) var(--radius) 0 0; padding: 24px 20px 36px; width: 100%; max-width: 480px; }
+    .modal-title { font-size: 16px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+    .modal-sub { font-size: 13px; color: var(--text-dim); margin-bottom: 20px; line-height: 1.5; white-space: pre-line; }
+    .modal-btn-row { display: flex; gap: 10px; margin-top: 16px; }
+    .modal-btn { flex: 1; padding: 14px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface2); color: var(--text); font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.15s; }
+    .modal-btn.accent { background: var(--accent); color: #0a0a0a; border-color: var(--accent); }
+    .modal-btn.danger { background: var(--danger); color: #0a0a0a; border-color: var(--danger); }
+    .modal-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+    #pushup-countdown { font-size: 40px; font-weight: 200; color: var(--accent); text-align: center; margin: 16px 0 8px; font-variant-numeric: tabular-nums; }
+    #pushup-count-display { font-size: 48px; font-weight: 200; color: var(--warn); text-align: center; margin: 12px 0 4px; }
+    #pushup-label { font-size: 12px; color: var(--text-dim); text-align: center; letter-spacing: 0.5px; }
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+    @media (hover: hover) { ::-webkit-scrollbar { width: 6px; } ::-webkit-scrollbar-thumb { background: #333; } ::-webkit-scrollbar-thumb:hover { background: #555; } }
+    .mt8 { margin-top: 8px; }
+    .mt12 { margin-top: 12px; }
+    .txt-dim { color: var(--text-dim); font-size: 12px; }
+    .txt-center { text-align: center; }
+  </style>
+</head>
+<body>
+<div id="app">
+
+  <!-- TIMER SCREEN -->
+  <div id="screen-timer" class="screen active">
+    <div class="screen-header">
+      <span class="screen-title">FocusTrap</span>
+    </div>
+    <div id="timer-mode-row">
+      <button class="mode-btn active" data-mode="pomodoro">Pomodoro</button>
+      <button class="mode-btn" data-mode="ultradian">Ultradian</button>
+    </div>
+    <div class="card">
+      <div class="card-label">Session Setup</div>
+      <div class="select-wrap">
+        <select id="subject-select" class="select-field"></select>
+      </div>
+      <input id="task-input" class="input-field mt8" type="text" placeholder="What are you working on? (required)" maxlength="80" />
+    </div>
+    <!-- Weekly targets progress -->
+    <div class="card" id="targets-card" style="display:none">
+      <div class="card-label">Today's Targets</div>
+      <div id="targets-progress"></div>
+    </div>
+    <div id="timer-display-card">
+      <div id="phase-label">SPRINT</div>
+      <div id="timer-clock">25:00</div>
+      <div id="round-label"></div>
+      <div id="pomo-rounds"></div>
+      <div id="timer-progress-wrap">
+        <div id="timer-progress-bar"></div>
+      </div>
+      <div id="distraction-wrap">
+        <button id="btn-distract">Mind wandered — tap</button>
+        <span id="distract-count-lbl">0 distractions</span>
+      </div>
+    </div>
+    <div id="timer-controls">
+      <button class="ctrl-btn primary" id="btn-start">Start</button>
+      <button class="ctrl-btn" id="btn-pause" style="display:none">Pause</button>
+      <button class="ctrl-btn danger" id="btn-stop" style="display:none">Stop</button>
+    </div>
+  </div>
+
+  <!-- STATS SCREEN -->
+  <div id="screen-stats" class="screen">
+    <div class="screen-header">
+      <span class="screen-title">Statistics</span>
+    </div>
+    <div class="tab-row">
+      <button class="tab-btn active" data-tab="daily">Daily</button>
+      <button class="tab-btn" data-tab="weekly">Weekly</button>
+      <button class="tab-btn" data-tab="monthly">Monthly</button>
+    </div>
+    <!-- Summary blocks -->
+    <div class="stat-row">
+      <div class="stat-block"><div class="val" id="stat-hours">0h 0m</div><div class="lbl">Total Time</div></div>
+      <div class="stat-block"><div class="val-sm" id="stat-sprints">—</div><div class="lbl">Sprints</div></div>
+      <div class="stat-block"><div class="val" id="stat-completion">—</div><div class="lbl">Completion</div></div>
+      <div class="stat-block"><div class="val" id="stat-streak">0 / 7</div><div class="lbl">Days This Week</div></div>
+    </div>
+    <div class="stat-row">
+      <div class="stat-block"><div class="val" id="stat-avg-dist">—</div><div class="lbl">Avg Distractions</div></div>
+      <div class="stat-block"><div class="val" id="stat-quality">—</div><div class="lbl">Focus Quality</div></div>
+    </div>
+
+    <!-- Bar chart: time per subject -->
+    <div class="card">
+      <div class="card-label">Time per Subject</div>
+      <div class="chart-toggle" id="bar-toggle">
+        <button class="chart-toggle-btn active" data-view="all">All</button>
+        <button class="chart-toggle-btn" data-view="single">Subject</button>
+      </div>
+      <select class="chart-subj-select" id="bar-subj-select"></select>
+      <div class="chart-wrap"><canvas id="bar-chart"></canvas></div>
+    </div>
+
+    <!-- Distraction trend -->
+    <div class="card">
+      <div class="card-label">Distractions per Session</div>
+      <div class="chart-toggle" id="dist-toggle">
+        <button class="chart-toggle-btn active" data-view="all">All</button>
+        <button class="chart-toggle-btn" data-view="single">Subject</button>
+      </div>
+      <select class="chart-subj-select" id="dist-subj-select"></select>
+      <div class="chart-wrap"><canvas id="dist-chart"></canvas></div>
+    </div>
+
+    <!-- Weekly stacked (only on weekly+all) -->
+    <div class="card" id="weekly-stacked-card" style="display:none">
+      <div class="card-label">Daily Breakdown by Subject</div>
+      <div class="chart-wrap"><canvas id="stacked-chart"></canvas></div>
+    </div>
+
+    <!-- Monthly line -->
+    <div class="card" id="monthly-line-card" style="display:none">
+      <div class="card-label">Consistency This Month</div>
+      <div class="chart-wrap"><canvas id="line-chart"></canvas></div>
+    </div>
+
+    <!-- Heatmap -->
+    <div class="card">
+      <div class="card-label">Study Hours Heatmap</div>
+      <div class="chart-toggle" id="hm-toggle">
+        <button class="chart-toggle-btn active" data-view="all">All</button>
+        <button class="chart-toggle-btn" data-view="single">Subject</button>
+      </div>
+      <select class="chart-subj-select" id="hm-subj-select"></select>
+      <div id="heatmap-grid"></div>
+      <div class="hm-hours">
+        <span class="hm-hour-lbl">12AM</span>
+        <span class="hm-hour-lbl">6AM</span>
+        <span class="hm-hour-lbl">12PM</span>
+        <span class="hm-hour-lbl">6PM</span>
+        <span class="hm-hour-lbl">11PM</span>
+      </div>
+      <div id="peak-hour-line">Peak study hour: —</div>
+    </div>
+
+    <!-- Completion bars -->
+    <div class="card">
+      <div class="card-label">Sprint Completion Rate</div>
+      <div class="chart-toggle" id="comp-toggle">
+        <button class="chart-toggle-btn active" data-view="all">All</button>
+        <button class="chart-toggle-btn" data-view="single">Subject</button>
+      </div>
+      <select class="chart-subj-select" id="comp-subj-select"></select>
+      <div id="completion-bars"></div>
+    </div>
+  </div>
+
+  <!-- SETTINGS SCREEN -->
+  <div id="screen-settings" class="screen">
+    <div class="screen-header"><span class="screen-title">Settings</span></div>
+    <div class="settings-group">
+      <div class="settings-group-label">Pomodoro</div>
+      <div class="setting-row">
+        <div><div class="setting-row-label">Sprint Duration</div><div class="setting-row-sub">minutes</div></div>
+        <input class="num-input" id="set-pomo-sprint" type="number" min="1" max="120" value="25" />
+      </div>
+      <div class="setting-row">
+        <div><div class="setting-row-label">Short Break</div><div class="setting-row-sub">minutes</div></div>
+        <input class="num-input" id="set-pomo-short" type="number" min="1" max="60" value="5" />
+      </div>
+      <div class="setting-row">
+        <div><div class="setting-row-label">Long Break</div><div class="setting-row-sub">minutes</div></div>
+        <input class="num-input" id="set-pomo-long" type="number" min="1" max="60" value="15" />
+      </div>
+      <div class="setting-row">
+        <div><div class="setting-row-label">Rounds Before Long Break</div><div class="setting-row-sub">sprints</div></div>
+        <input class="num-input" id="set-pomo-rounds" type="number" min="1" max="10" value="4" />
+      </div>
+    </div>
+    <div class="settings-group">
+      <div class="settings-group-label">Ultradian Sprint</div>
+      <div class="setting-row">
+        <div><div class="setting-row-label">Sprint Duration</div><div class="setting-row-sub">minutes</div></div>
+        <input class="num-input" id="set-ultr-sprint" type="number" min="1" max="180" value="90" />
+      </div>
+      <div class="setting-row">
+        <div><div class="setting-row-label">Break Duration</div><div class="setting-row-sub">minutes</div></div>
+        <input class="num-input" id="set-ultr-break" type="number" min="1" max="60" value="20" />
+      </div>
+    </div>
+    <div class="settings-group">
+      <div class="settings-group-label">Subjects</div>
+      <div id="subject-chips"></div>
+      <div id="add-subject-row">
+        <input class="input-field" id="new-subject-input" type="text" placeholder="Add subject…" maxlength="30" />
+        <button class="small-btn" id="btn-add-subject">Add</button>
+      </div>
+    </div>
+    <div class="settings-group">
+      <div class="settings-group-label">Daily Targets</div>
+      <div class="setting-row">
+        <div><div class="setting-row-label">Overall Daily Goal</div><div class="setting-row-sub">hours total</div></div>
+        <input class="num-input" id="set-overall-target" type="number" min="0" max="24" value="0" />
+      </div>
+      <div id="subject-target-list" style="margin-top:8px;"></div>
+      <div id="add-target-row" style="display:flex;gap:8px;margin-top:10px;">
+        <div class="select-wrap" style="flex:1">
+          <select id="target-subject-select" class="select-field" style="padding:9px 28px 9px 12px;font-size:13px;"></select>
+        </div>
+        <input class="num-input" id="target-hours-input" type="number" min="1" max="24" placeholder="h" style="width:52px;" />
+        <button class="small-btn" id="btn-add-target">Add</button>
+      </div>
+    </div>
+    <div style="height:20px;"></div>
+  </div>
+
+  <!-- BOTTOM NAV -->
+  <nav id="nav">
+    <button class="nav-btn active" data-screen="timer">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+      Timer
+    </button>
+    <button class="nav-btn" data-screen="stats">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="12" width="4" height="9"/><rect x="10" y="7" width="4" height="14"/><rect x="17" y="3" width="4" height="18"/></svg>
+      Stats
+    </button>
+    <button class="nav-btn" data-screen="settings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      Settings
+    </button>
+  </nav>
+
+  <!-- MODALS -->
+  <div class="overlay" id="overlay-workdone">
+    <div class="modal">
+      <div class="modal-title">Sprint Complete</div>
+      <div class="modal-sub" id="workdone-sub">Did you complete your task?</div>
+      <div class="modal-btn-row">
+        <button class="modal-btn danger" id="btn-notdone">Not Done</button>
+        <button class="modal-btn accent" id="btn-done">Done ✓</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="overlay-pushup">
+    <div class="modal">
+      <div class="modal-title">Push-up Time</div>
+      <div class="modal-sub">Break starts after you complete your push-ups.</div>
+      <div id="pushup-count-display">10</div>
+      <div id="pushup-label">push-ups</div>
+      <div id="pushup-countdown">2:00</div>
+      <div class="txt-dim txt-center mt8">Done button unlocks in 2 minutes</div>
+      <div class="modal-btn-row">
+        <button class="modal-btn accent" id="btn-pushup-done" disabled>Done</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════
+// DATA LAYER
+// ═══════════════════════════════════════════
+
+const DEFAULT_SUBJECTS = [
+  'Physics','Chemistry','Biology','Maths',
+  'Computer Science','Bengali','English Language',
+  'English Literature','History','Geography'
+];
+
+function loadData(key, fallback) {
+  try { const v = localStorage.getItem(key); return v !== null ? JSON.parse(v) : fallback; }
+  catch { return fallback; }
+}
+function saveData(key, val) {
+  try {
+    localStorage.setItem(key, JSON.stringify(val));
+  } catch(e) {
+    alert('Storage full or blocked — session may not have saved.');
+  }
+}
+
+let settings    = loadData('ft_settings', { mode:'pomodoro', pomo:{sprint:25,short:5,long:15,rounds:4}, ultr:{sprint:90,brk:20} });
+let subjects    = loadData('ft_subjects', [...DEFAULT_SUBJECTS]);
+let sessions    = loadData('ft_sessions', []);
+let pushupState = loadData('ft_pushup',   { level:10, totalMisses:0, totalPushups:0, log:[] });
+let daysUsed    = loadData('ft_daysused', []);
+// targets: { overall: hours, subjects: { SubjectName: hours }, lastReset: 'YYYY-MM-DD' }
+let targets     = loadData('ft_targets',  { overall: 0, subjects: {}, lastReset: '' });
+
+function nowIST() {
+  // IST = UTC + 5:30 = UTC + 330 minutes
+  const now = new Date();
+  return new Date(now.getTime() + 330 * 60 * 1000);
+}
+
+function todayStr() {
+  return nowIST().toISOString().slice(0, 10);
+}
+
+function markDayUsed() {
+  const t = todayStr();
+  if (!daysUsed.includes(t)) { daysUsed.push(t); saveData('ft_daysused', daysUsed); }
+}
+
+function maybeResetTargets() {
+  // Reset at 3 AM IST — "current reset day" is the IST date, but only after 3 AM.
+  // Before 3 AM, we treat it as still belonging to the previous day's reset window.
+  const ist = nowIST();
+  const h = ist.getUTCHours(); // hours within the shifted IST time
+  const resetDay = h < 3
+    ? new Date(ist.getTime() - 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+    : ist.toISOString().slice(0, 10);
+  if (targets.lastReset !== resetDay) {
+    targets.lastReset = resetDay;
+    saveData('ft_targets', targets);
+  }
+}
+
+function saveSession(s) {
+  sessions.push(s);
+  saveData('ft_sessions', sessions);
+  markDayUsed();
+}
+
+// ═══════════════════════════════════════════
+// AUDIO
+// ═══════════════════════════════════════════
+
+let audioCtx = null;
+function getAudio() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx;
+}
+function beep(freq=880, dur=0.3, vol=0.4) {
+  try {
+    const ctx = getAudio();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.type = 'sine'; osc.frequency.value = freq;
+    gain.gain.setValueAtTime(vol, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + dur);
+    osc.start(ctx.currentTime); osc.stop(ctx.currentTime + dur);
+  } catch {}
+}
+function beepSprintEnd() { beep(880,0.2,0.5); setTimeout(()=>beep(1100,0.3,0.5),250); }
+function beepBreakEnd()  { beep(660,0.2,0.4); setTimeout(()=>beep(880,0.3,0.4),250); }
+
+// ═══════════════════════════════════════════
+// TIMER STATE
+// ═══════════════════════════════════════════
+
+let timerMode     = 'pomodoro';
+let phase         = 'sprint';
+let running       = false;
+let paused        = false;
+let interval      = null;
+let secondsLeft   = 0;
+let totalSeconds  = 0;
+let pomoRound     = 1;
+let sprintStart   = null;
+let sprintSubject = '';
+let sprintTask    = '';
+let distractCount = 0;
+let elapsedSec    = 0;  // actual elapsed seconds this sprint
+
+function getSprintSec() {
+  return timerMode === 'pomodoro' ? settings.pomo.sprint * 60 : settings.ultr.sprint * 60;
+}
+function getBreakSec() {
+  if (timerMode === 'ultradian') return settings.ultr.brk * 60;
+  return (pomoRound % settings.pomo.rounds === 0) ? settings.pomo.long * 60 : settings.pomo.short * 60;
+}
+function fmt(sec) {
+  return String(Math.floor(sec/60)).padStart(2,'0') + ':' + String(sec%60).padStart(2,'0');
+}
+
+function updateClockUI() {
+  document.getElementById('timer-clock').textContent = fmt(secondsLeft);
+  document.title = running && phase==='sprint'
+    ? fmt(secondsLeft) + ' · SPRINT — ' + sprintSubject
+    : 'FocusTrap';
+  const pct = totalSeconds > 0 ? ((totalSeconds - secondsLeft) / totalSeconds) * 100 : 0;
+  document.getElementById('timer-progress-bar').style.width = pct + '%';
+  document.getElementById('phase-label').textContent = phase === 'sprint' ? 'SPRINT' : 'BREAK';
+  if (timerMode === 'pomodoro') {
+    document.getElementById('round-label').textContent = `Round ${pomoRound} of ${settings.pomo.rounds}`;
+    renderPomoDots();
+  } else {
+    document.getElementById('round-label').textContent = 'Ultradian Sprint';
+    document.getElementById('pomo-rounds').innerHTML = '';
+  }
+}
+
+function renderPomoDots() {
+  const wrap = document.getElementById('pomo-rounds');
+  wrap.innerHTML = '';
+  for (let i = 1; i <= settings.pomo.rounds; i++) {
+    const d = document.createElement('div');
+    d.className = 'round-dot' + (i < pomoRound ? ' done' : i === pomoRound ? ' current' : '');
+    wrap.appendChild(d);
+  }
+}
+
+function resetDisplay() {
+  phase = 'sprint';
+  secondsLeft = getSprintSec();
+  totalSeconds = secondsLeft;
+  elapsedSec = 0;
+  distractCount = 0;
+  updateClockUI();
+  document.getElementById('timer-progress-bar').style.width = '0%';
+  document.getElementById('distraction-wrap').classList.remove('visible');
+  document.getElementById('distract-count-lbl').textContent = '0 distractions';
+}
+
+// ═══════════════════════════════════════════
+// TIMER CONTROLS
+// ═══════════════════════════════════════════
+
+function startTimer() {
+  const taskVal = document.getElementById('task-input').value.trim();
+  if (!taskVal) {
+    document.getElementById('task-input').focus();
+    document.getElementById('task-input').style.borderColor = 'var(--danger)';
+    setTimeout(() => document.getElementById('task-input').style.borderColor = '', 1500);
+    return;
+  }
+  if (!running && !paused) {
+    // fresh start only (not resume)
+    phase = 'sprint';
+    secondsLeft = getSprintSec();
+    totalSeconds = secondsLeft;
+    elapsedSec = 0;
+    distractCount = 0;
+    sprintStart = new Date();
+    sprintSubject = document.getElementById('subject-select').value;
+    sprintTask = taskVal;
+    markDayUsed();
+  }
+  running = true;
+  paused = false;
+  showControls('running');
+  if (phase === 'sprint') {
+    document.getElementById('distraction-wrap').classList.add('visible');
+  }
+  clearInterval(interval);
+  interval = setInterval(tick, 1000);
+}
+
+function pauseTimer() {
+  paused = true;
+  running = false;
+  clearInterval(interval);
+  document.title = 'FocusTrap';
+  const btn = document.getElementById('btn-pause');
+  btn.textContent = 'Resume';
+  btn.onclick = resumeTimer;
+}
+
+function resumeTimer() {
+  // Fix 3: block mode switch while paused — mode buttons already guard on running,
+  // we now also reset display correctly if mode changed while paused
+  if (timerMode !== (settings.mode || 'pomodoro')) {
+    phase = 'sprint';
+    secondsLeft = getSprintSec();
+    totalSeconds = secondsLeft;
+    elapsedSec = 0;
+  }
+  running = true;
+  paused = false;
+  const btn = document.getElementById('btn-pause');
+  btn.textContent = 'Pause';
+  btn.onclick = pauseTimer;
+  clearInterval(interval);
+  interval = setInterval(tick, 1000);
+}
+
+function stopTimer() {
+  clearInterval(interval);
+  // Save partial session if sprint and elapsed > 10 min
+  if (phase === 'sprint' && elapsedSec >= 600) {
+    saveSession({
+      id: Date.now(),
+      date: todayStr(),
+      subject: sprintSubject,
+      task: sprintTask,
+      mode: timerMode,
+      durationSec: elapsedSec,
+      startHour: sprintStart ? sprintStart.getHours() : new Date().getHours(),
+      done: false,
+      distractions: distractCount,
+      partial: true
+    });
+  }
+  running = false;
+  paused = false;
+  pomoRound = 1;
+  document.title = 'FocusTrap';
+  showControls('idle');
+  resetDisplay();
+  renderTargetsCard();
+}
+
+function showControls(state) {
+  const s = document.getElementById('btn-start');
+  const p = document.getElementById('btn-pause');
+  const x = document.getElementById('btn-stop');
+  if (state === 'idle') {
+    s.style.display = ''; p.style.display = 'none'; x.style.display = 'none';
+    s.textContent = 'Start';
+  } else {
+    s.style.display = 'none'; p.style.display = ''; x.style.display = '';
+    p.textContent = 'Pause'; p.onclick = pauseTimer;
+  }
+}
+
+function tick() {
+  if (secondsLeft > 0) {
+    secondsLeft--;
+    if (phase === 'sprint') elapsedSec++;
+    updateClockUI();
+  } else {
+    clearInterval(interval);
+    running = false;
+    if (phase === 'sprint') {
+      beepSprintEnd();
+      saveSession({
+        id: Date.now(),
+        date: todayStr(),
+        subject: sprintSubject,
+        task: sprintTask,
+        mode: timerMode,
+        durationSec: elapsedSec,
+        startHour: sprintStart ? sprintStart.getHours() : new Date().getHours(),
+        done: null,
+        distractions: distractCount,
+        partial: false
+      });
+      document.getElementById('distraction-wrap').classList.remove('visible');
+      showWorkDoneModal();
+    } else {
+      beepBreakEnd();
+      if (timerMode === 'pomodoro') pomoRound++;
+      phase = 'sprint';
+      secondsLeft = getSprintSec();
+      totalSeconds = secondsLeft;
+      elapsedSec = 0;
+      distractCount = 0;
+      document.title = 'FocusTrap';
+      updateClockUI();
+      showControls('idle');
+      renderTargetsCard();
+    }
+  }
+}
+
+// Distraction button
+document.getElementById('btn-distract').onclick = function() {
+  distractCount++;
+  const lbl = document.getElementById('distract-count-lbl');
+  lbl.textContent = distractCount + (distractCount === 1 ? ' distraction' : ' distractions');
+};
+
+// ═══════════════════════════════════════════
+// WORK DONE MODAL
+// ═══════════════════════════════════════════
+
+function showWorkDoneModal() {
+  document.getElementById('workdone-sub').textContent =
+    `Subject: ${sprintSubject} — "${sprintTask}"\nDid you complete your task?`;
+  document.getElementById('overlay-workdone').classList.add('open');
+}
+function closeWorkDoneModal() {
+  document.getElementById('overlay-workdone').classList.remove('open');
+}
+
+document.getElementById('btn-done').onclick = function() {
+  if (sessions.length > 0) {
+    sessions[sessions.length - 1].done = true;
+    saveData('ft_sessions', sessions);
+  }
+  closeWorkDoneModal();
+  startBreak();
+};
+document.getElementById('btn-notdone').onclick = function() {
+  if (sessions.length > 0) {
+    sessions[sessions.length - 1].done = false;
+    saveData('ft_sessions', sessions);
+  }
+  closeWorkDoneModal();
+  showPushupModal();
+};
+
+// ═══════════════════════════════════════════
+// PUSH-UP MODAL — untouched
+// ═══════════════════════════════════════════
+
+let pushupInterval = null;
+
+function showPushupModal() {
+  const level = pushupState.level;
+  document.getElementById('pushup-count-display').textContent = level;
+  document.getElementById('btn-pushup-done').disabled = true;
+  document.getElementById('pushup-countdown').textContent = '2:00';
+  document.getElementById('overlay-pushup').classList.add('open');
+  let secs = 120;
+  clearInterval(pushupInterval);
+  pushupInterval = setInterval(() => {
+    secs--;
+    const m = Math.floor(secs/60).toString().padStart(2,'0');
+    const s = (secs%60).toString().padStart(2,'0');
+    document.getElementById('pushup-countdown').textContent = `${m}:${s}`;
+    if (secs <= 0) {
+      clearInterval(pushupInterval);
+      document.getElementById('btn-pushup-done').disabled = false;
+      document.getElementById('pushup-countdown').textContent = 'Ready';
+    }
+  }, 1000);
+}
+
+document.getElementById('btn-pushup-done').onclick = function() {
+  clearInterval(pushupInterval);
+  const today = todayStr();
+  const level = pushupState.level;
+  pushupState.totalMisses++;
+  pushupState.totalPushups += level;
+  const existing = pushupState.log.find(l => l.date === today);
+  if (existing) { existing.missed++; existing.pushups += level; }
+  else { pushupState.log.push({ date: today, missed: 1, pushups: level }); }
+  pushupState.level++;
+  saveData('ft_pushup', pushupState);
+  document.getElementById('overlay-pushup').classList.remove('open');
+  startBreak();
+};
+
+// ═══════════════════════════════════════════
+// BREAK
+// ═══════════════════════════════════════════
+
+function startBreak() {
+  phase = 'break';
+  secondsLeft = getBreakSec();
+  totalSeconds = secondsLeft;
+  sprintStart = null;
+  document.getElementById('distraction-wrap').classList.remove('visible');
+  updateClockUI();
+  running = true;
+  showControls('running');
+  clearInterval(interval);
+  interval = setInterval(tick, 1000);
+}
+
+// ═══════════════════════════════════════════
+// WEEKLY TARGETS — timer screen card
+// ═══════════════════════════════════════════
+
+function renderTargetsCard() {
+  const card = document.getElementById('targets-card');
+  const wrap = document.getElementById('targets-progress');
+  const hasOverall = targets.overall > 0;
+  const hasSubjects = Object.keys(targets.subjects).length > 0;
+  if (!hasOverall && !hasSubjects) { card.style.display = 'none'; return; }
+  card.style.display = '';
+  wrap.innerHTML = '';
+
+  const today = todayStr();
+
+  if (hasOverall) {
+    const totalSec = sessions.filter(s => s.date === today)
+      .reduce((a,s) => a + s.durationSec, 0);
+    const actualH = totalSec / 3600;
+    const pct = Math.min(100, Math.round((actualH / targets.overall) * 100));
+    const row = document.createElement('div');
+    row.className = 'target-row';
+    row.innerHTML = `
+      <div class="target-subject">Overall</div>
+      <div class="target-bar-wrap"><div class="target-bar-fill${pct>=100?' hit':''}" style="width:${pct}%"></div></div>
+      <div class="target-pct">${actualH.toFixed(1)}/${targets.overall}h</div>`;
+    wrap.appendChild(row);
+  }
+
+  Object.entries(targets.subjects).forEach(([subj, goalH]) => {
+    const subjSec = sessions.filter(s => s.date === today && s.subject === subj)
+      .reduce((a,s) => a + s.durationSec, 0);
+    const actualH = subjSec / 3600;
+    const pct = Math.min(100, Math.round((actualH / goalH) * 100));
+    const row = document.createElement('div');
+    row.className = 'target-row';
+    const lbl = subj.length > 10 ? subj.slice(0,10)+'…' : subj;
+    row.innerHTML = `
+      <div class="target-subject" title="${subj}">${lbl}</div>
+      <div class="target-bar-wrap"><div class="target-bar-fill${pct>=100?' hit':''}" style="width:${pct}%"></div></div>
+      <div class="target-pct">${actualH.toFixed(1)}/${goalH}h</div>`;
+    wrap.appendChild(row);
+  });
+}
+
+// ═══════════════════════════════════════════
+// NAV
+// ═══════════════════════════════════════════
+
+document.querySelectorAll('.nav-btn').forEach(btn => {
+  btn.onclick = function() {
+    const screen = this.dataset.screen;
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    this.classList.add('active');
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById('screen-' + screen).classList.add('active');
+    if (screen === 'stats') renderStats();
+    if (screen === 'settings') renderSettings();
+    if (screen === 'timer') renderTargetsCard();
+  };
+});
+
+// ═══════════════════════════════════════════
+// SETTINGS UI
+// ═══════════════════════════════════════════
+
+function renderSettings() {
+  document.getElementById('set-pomo-sprint').value = settings.pomo.sprint;
+  document.getElementById('set-pomo-short').value  = settings.pomo.short;
+  document.getElementById('set-pomo-long').value   = settings.pomo.long;
+  document.getElementById('set-pomo-rounds').value = settings.pomo.rounds;
+  document.getElementById('set-ultr-sprint').value = settings.ultr.sprint;
+  document.getElementById('set-ultr-break').value  = settings.ultr.brk;
+  document.getElementById('set-overall-target').value = targets.overall || 0;
+  renderSubjectChips();
+  renderTargetList();
+  populateTargetSubjectSelect();
+}
+
+// Fix 6: use 'input' event instead of 'change' for reliable mobile saving
+['set-pomo-sprint','set-pomo-short','set-pomo-long','set-pomo-rounds',
+ 'set-ultr-sprint','set-ultr-break'].forEach(id => {
+  document.getElementById(id).addEventListener('input', () => {
+    settings.pomo.sprint = +document.getElementById('set-pomo-sprint').value || 25;
+    settings.pomo.short  = +document.getElementById('set-pomo-short').value  || 5;
+    settings.pomo.long   = +document.getElementById('set-pomo-long').value   || 15;
+    settings.pomo.rounds = +document.getElementById('set-pomo-rounds').value || 4;
+    settings.ultr.sprint = +document.getElementById('set-ultr-sprint').value || 90;
+    settings.ultr.brk    = +document.getElementById('set-ultr-break').value  || 20;
+    saveData('ft_settings', settings);
+    if (!running && !paused) resetDisplay();
+  });
+});
+
+document.getElementById('set-overall-target').addEventListener('input', () => {
+  targets.overall = +document.getElementById('set-overall-target').value || 0;
+  saveData('ft_targets', targets);
+  renderTargetsCard();
+});
+
+function renderSubjectChips() {
+  const wrap = document.getElementById('subject-chips');
+  wrap.innerHTML = '';
+  subjects.forEach((s, i) => {
+    const chip = document.createElement('div');
+    chip.className = 'subject-chip';
+    chip.innerHTML = `<span>${s}</span><button class="chip-del" data-i="${i}">×</button>`;
+    wrap.appendChild(chip);
+  });
+  wrap.querySelectorAll('.chip-del').forEach(btn => {
+    btn.onclick = function() {
+      subjects.splice(+this.dataset.i, 1);
+      saveData('ft_subjects', subjects);
+      renderSubjectChips();
+      populateSubjectSelects();
+      populateTargetSubjectSelect();
+    };
+  });
+}
+
+document.getElementById('btn-add-subject').onclick = function() {
+  const inp = document.getElementById('new-subject-input');
+  const val = inp.value.trim();
+  if (val && !subjects.includes(val)) {
+    subjects.push(val);
+    saveData('ft_subjects', subjects);
+    inp.value = '';
+    renderSubjectChips();
+    populateSubjectSelects();
+    populateTargetSubjectSelect();
+  }
+};
+document.getElementById('new-subject-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') document.getElementById('btn-add-subject').click();
+});
+
+function renderTargetList() {
+  const list = document.getElementById('subject-target-list');
+  list.innerHTML = '';
+  const entries = Object.entries(targets.subjects);
+  if (!entries.length) {
+    list.innerHTML = '<div style="color:var(--text-faint);font-size:12px;padding:4px 0">No subject targets set.</div>';
+    return;
+  }
+  entries.forEach(([subj, h]) => {
+    const row = document.createElement('div');
+    row.className = 'target-setting-row';
+    row.innerHTML = `
+      <span class="target-setting-label">${subj}</span>
+      <span class="target-setting-unit">${h}h / week</span>
+      <button class="target-del-btn" data-subj="${subj}">×</button>`;
+    list.appendChild(row);
+  });
+  list.querySelectorAll('.target-del-btn').forEach(btn => {
+    btn.onclick = function() {
+      delete targets.subjects[this.dataset.subj];
+      saveData('ft_targets', targets);
+      renderTargetList();
+      renderTargetsCard();
+    };
+  });
+}
+
+function populateTargetSubjectSelect() {
+  const sel = document.getElementById('target-subject-select');
+  sel.innerHTML = '';
+  subjects.forEach(s => {
+    const o = document.createElement('option');
+    o.value = o.textContent = s;
+    sel.appendChild(o);
+  });
+}
+
+document.getElementById('btn-add-target').onclick = function() {
+  const subj = document.getElementById('target-subject-select').value;
+  const h = +document.getElementById('target-hours-input').value;
+  if (subj && h > 0) {
+    targets.subjects[subj] = h;
+    saveData('ft_targets', targets);
+    document.getElementById('target-hours-input').value = '';
+    renderTargetList();
+    renderTargetsCard();
+  }
+};
+
+// ═══════════════════════════════════════════
+// SUBJECT SELECTS
+// ═══════════════════════════════════════════
+
+function populateSubjectSelects() {
+  ['subject-select','bar-subj-select','dist-subj-select','hm-subj-select','comp-subj-select'].forEach(id => {
+    const sel = document.getElementById(id);
+    if (!sel) return;
+    const prev = sel.value;
+    sel.innerHTML = '';
+    subjects.forEach(s => {
+      const o = document.createElement('option');
+      o.value = o.textContent = s;
+      sel.appendChild(o);
+    });
+    if (subjects.includes(prev)) sel.value = prev;
+  });
+}
+
+// ═══════════════════════════════════════════
+// TIMER MODE BUTTONS — fix 3: block when paused too
+// ═══════════════════════════════════════════
+
+document.querySelectorAll('.mode-btn').forEach(btn => {
+  btn.onclick = function() {
+    if (running || paused) return;
+    document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+    this.classList.add('active');
+    timerMode = this.dataset.mode;
+    settings.mode = timerMode;
+    saveData('ft_settings', settings);
+    pomoRound = 1;
+    resetDisplay();
+  };
+});
+
+document.getElementById('btn-start').onclick = startTimer;
+document.getElementById('btn-stop').onclick   = stopTimer;
+
+// ═══════════════════════════════════════════
+// STATS HELPERS
+// ═══════════════════════════════════════════
+
+let statTab = 'daily';
+
+function getDateRange(tab) {
+  const now = nowIST();
+  if (tab === 'daily') return [todayStr(), todayStr()];
+  if (tab === 'weekly') {
+    const day = now.getUTCDay();
+    const mon = new Date(now); mon.setUTCDate(now.getUTCDate() - ((day+6)%7));
+    const sun = new Date(mon); sun.setUTCDate(mon.getUTCDate() + 6);
+    return [mon.toISOString().slice(0,10), sun.toISOString().slice(0,10)];
+  }
+  const first = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+  const last  = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth()+1, 0));
+  return [first.toISOString().slice(0,10), last.toISOString().slice(0,10)];
+}
+
+function filterSessions(tab, subject) {
+  const [from, to] = getDateRange(tab);
+  return sessions.filter(s => {
+    const inRange = s.date >= from && s.date <= to;
+    const inSubj  = !subject || s.subject === subject;
+    return inRange && inSubj;
+  });
+}
+
+function secToHM(sec) {
+  const h = Math.floor(sec/3600);
+  const m = Math.floor((sec%3600)/60);
+  return `${h}h ${m}m`;
+}
+
+function secToLabel(sec) {
+  if (sec >= 3600) return (sec/3600).toFixed(1) + 'h';
+  return Math.floor(sec/60) + 'm';
+}
+
+function formatHour(h) {
+  const ampm = h < 12 ? 'AM' : 'PM';
+  return `${h%12||12}${ampm}`;
+}
+
+// per-chart view state
+const chartViews = { bar:'all', dist:'all', hm:'all', comp:'all' };
+
+function wireChartToggle(toggleId, selectId, chartKey, redrawFn) {
+  const toggleEl = document.getElementById(toggleId);
+  const selectEl = document.getElementById(selectId);
+  toggleEl.querySelectorAll('.chart-toggle-btn').forEach(btn => {
+    btn.onclick = function() {
+      toggleEl.querySelectorAll('.chart-toggle-btn').forEach(b => b.classList.remove('active'));
+      this.classList.add('active');
+      chartViews[chartKey] = this.dataset.view;
+      selectEl.classList.toggle('visible', chartViews[chartKey] === 'single');
+      redrawFn();
+    };
+  });
+  selectEl.onchange = redrawFn;
+}
+
+// ═══════════════════════════════════════════
+// STATS RENDER
+// ═══════════════════════════════════════════
+
+function renderStats() {
+  const filtered = filterSessions(statTab, null);
+
+  // Summary
+  const totalSec = filtered.reduce((a,s) => a + s.durationSec, 0);
+  document.getElementById('stat-hours').textContent = secToHM(totalSec);
+
+  const pomoCount = filtered.filter(s => s.mode === 'pomodoro').length;
+  const ultrCount = filtered.filter(s => s.mode === 'ultradian').length;
+  document.getElementById('stat-sprints').textContent =
+    pomoCount && ultrCount ? `${pomoCount}P · ${ultrCount}U`
+    : pomoCount ? `${pomoCount} Pomo`
+    : ultrCount ? `${ultrCount} Ultr` : '0';
+
+  const rated = filtered.filter(s => s.done !== null);
+  const done  = rated.filter(s => s.done === true);
+  document.getElementById('stat-completion').textContent =
+    rated.length ? Math.round((done.length/rated.length)*100)+'%' : '—';
+
+  const [wFrom, wTo] = getDateRange('weekly');
+  const weekDays = new Set(sessions.filter(s => s.date >= wFrom && s.date <= wTo).map(s => s.date));
+  document.getElementById('stat-streak').textContent = `${weekDays.size} / 7`;
+
+  const withDist = filtered.filter(s => s.distractions !== undefined && !s.partial);
+  if (withDist.length) {
+    const avgDist = (withDist.reduce((a,s) => a + (s.distractions||0), 0) / withDist.length).toFixed(1);
+    document.getElementById('stat-avg-dist').textContent = avgDist;
+    // quality: 100% - penalty per distraction per 25 min
+    const avgMin = withDist.reduce((a,s) => a + s.durationSec/60, 0) / withDist.length;
+    const avgD   = withDist.reduce((a,s) => a + (s.distractions||0), 0) / withDist.length;
+    const quality = Math.max(0, Math.round(100 - (avgD / Math.max(avgMin,1)) * 100));
+    document.getElementById('stat-quality').textContent = quality + '%';
+  } else {
+    document.getElementById('stat-avg-dist').textContent = '—';
+    document.getElementById('stat-quality').textContent = '—';
+  }
+
+  renderBarChart();
+  renderDistChart();
+  renderWeeklyStacked();
+  renderMonthlyLine();
+  renderHeatmap();
+  renderCompletionBars();
+
+  document.getElementById('weekly-stacked-card').style.display =
+    statTab === 'weekly' ? '' : 'none';
+  document.getElementById('monthly-line-card').style.display =
+    statTab === 'monthly' ? '' : 'none';
+}
+
+// ── Canvas helpers ──
+function initCanvas(canvas, H) {
+  const dpr = window.devicePixelRatio || 1;
+  const W = canvas.parentElement.clientWidth;
+  canvas.width  = W * dpr;
+  canvas.height = H * dpr;
+  canvas.style.width  = W + 'px';
+  canvas.style.height = H + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, W, H);
+  return { ctx, W, H };
+}
+
+function drawGrid(ctx, PAD_L, PAD_R, PAD_T, PAD_B, W, H, maxVal, unitFn) {
+  const chartW = W - PAD_L - PAD_R;
+  const chartH = H - PAD_T - PAD_B;
+  ctx.strokeStyle = '#2a2a2a'; ctx.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) {
+    const y = PAD_T + chartH - (i/4)*chartH;
+    ctx.beginPath(); ctx.moveTo(PAD_L, y); ctx.lineTo(PAD_L+chartW, y); ctx.stroke();
+    ctx.fillStyle = '#555';
+    ctx.font = `10px ${getComputedStyle(document.body).fontFamily}`;
+    ctx.textAlign = 'right';
+    ctx.fillText(unitFn(maxVal * i / 4), PAD_L - 4, y + 4);
+  }
+}
+
+function noData(ctx, W, H) {
+  ctx.fillStyle = '#444';
+  ctx.font = `12px ${getComputedStyle(document.body).fontFamily}`;
+  ctx.textAlign = 'center';
+  ctx.fillText('No data', W/2, H/2);
+}
+
+// ── Bar Chart ──
+function renderBarChart() {
+  const subj = chartViews.bar === 'single'
+    ? document.getElementById('bar-subj-select').value : null;
+  const filtered = filterSessions(statTab, subj);
+  const canvas = document.getElementById('bar-chart');
+  const H = 180;
+  const { ctx, W } = initCanvas(canvas, H);
+  const PAD_L=36, PAD_R=10, PAD_T=10, PAD_B=48;
+  const chartW = W-PAD_L-PAD_R, chartH = H-PAD_T-PAD_B;
+
+  const bySubj = {};
+  subjects.forEach(s => bySubj[s]=0);
+  filtered.forEach(s => { if (bySubj[s.subject]!==undefined) bySubj[s.subject]+=s.durationSec; });
+  const labels = subjects.filter(s => bySubj[s]>0);
+  const data   = labels.map(s => bySubj[s]);
+
+  if (!data.length) { noData(ctx,W,H); return; }
+  const maxVal = Math.max(...data) || 1;
+  // Y-axis: show minutes if all under 1h, else hours
+  const allUnderHour = maxVal < 3600;
+  const unitFn = allUnderHour
+    ? v => Math.round(v/60)+'m'
+    : v => (v/3600).toFixed(1)+'h';
+
+  drawGrid(ctx,PAD_L,PAD_R,PAD_T,PAD_B,W,H,maxVal,unitFn);
+  const barW = Math.min(chartW/data.length-6,40);
+  const gap  = chartW/data.length;
+  data.forEach((val,i) => {
+    const x = PAD_L + gap*i + gap/2 - barW/2;
+    const bH = (val/maxVal)*chartH;
+    const y  = PAD_T + chartH - bH;
+    ctx.fillStyle = '#4fc3f7';
+    ctx.beginPath(); ctx.roundRect(x,y,barW,bH,3); ctx.fill();
+    ctx.fillStyle = '#888';
+    ctx.font = `9px ${getComputedStyle(document.body).fontFamily}`;
+    ctx.textAlign = 'center';
+    const lbl = labels[i].length>6 ? labels[i].slice(0,6)+'…' : labels[i];
+    ctx.save(); ctx.translate(x+barW/2, H-PAD_B+8); ctx.rotate(-Math.PI/4);
+    ctx.fillText(lbl,0,0); ctx.restore();
+  });
+}
+
+// ── Distraction Chart ──
+function renderDistChart() {
+  const subj = chartViews.dist === 'single'
+    ? document.getElementById('dist-subj-select').value : null;
+  const filtered = filterSessions(statTab, subj).filter(s => s.distractions !== undefined);
+  const canvas = document.getElementById('dist-chart');
+  const H = 160;
+  const { ctx, W } = initCanvas(canvas, H);
+  const PAD_L=36, PAD_R=10, PAD_T=10, PAD_B=28;
+  const chartW = W-PAD_L-PAD_R, chartH = H-PAD_T-PAD_B;
+
+  if (!filtered.length) { noData(ctx,W,H); return; }
+
+  // last up to 20 sessions
+  const slice = filtered.slice(-20);
+  const data  = slice.map(s => s.distractions||0);
+  const maxVal = Math.max(...data,1);
+  drawGrid(ctx,PAD_L,PAD_R,PAD_T,PAD_B,W,H,maxVal,v=>Math.round(v));
+
+  const barW = Math.min(chartW/data.length-4,24);
+  const gap  = chartW/data.length;
+  data.forEach((val,i) => {
+    const x = PAD_L + gap*i + gap/2 - barW/2;
+    const bH = (val/maxVal)*chartH;
+    const y  = PAD_T + chartH - bH;
+    // color: green=low, red=high
+    const ratio = val/maxVal;
+    const r = Math.round(79 + (241-79)*ratio);
+    const g = Math.round(195 + (128-195)*ratio);
+    const b = Math.round(247 + (128-247)*ratio);
+    ctx.fillStyle = `rgb(${r},${g},${b})`;
+    if (bH > 0) { ctx.beginPath(); ctx.roundRect(x,y,barW,bH,2); ctx.fill(); }
+    else {
+      ctx.fillStyle = '#333';
+      ctx.beginPath(); ctx.arc(x+barW/2, PAD_T+chartH-3, 2, 0, Math.PI*2); ctx.fill();
+    }
+  });
+
+  // session index label every 5
+  ctx.fillStyle = '#444';
+  ctx.font = `9px ${getComputedStyle(document.body).fontFamily}`;
+  ctx.textAlign = 'center';
+  data.forEach((_,i) => {
+    if ((i+1)%5===0 || i===0) {
+      const x = PAD_L + gap*i + gap/2;
+      ctx.fillText(String(filtered.length - slice.length + i + 1), x, H-PAD_B+14);
+    }
+  });
+}
+
+// ── Weekly Stacked ──
+function renderWeeklyStacked() {
+  if (statTab !== 'weekly') return;
+  const canvas = document.getElementById('stacked-chart');
+  const H = 180;
+  const { ctx, W } = initCanvas(canvas, H);
+  const PAD_L=36, PAD_R=10, PAD_T=10, PAD_B=28;
+  const chartW=W-PAD_L-PAD_R, chartH=H-PAD_T-PAD_B;
+
+  const [from] = getDateRange('weekly');
+  const fromDate = new Date(from);
+  const days = [];
+  for (let i=0;i<7;i++) {
+    const d = new Date(fromDate); d.setDate(fromDate.getDate()+i);
+    days.push(d.toISOString().slice(0,10));
+  }
+  const dayLabels = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  const matrix = days.map(date => {
+    const row = {};
+    subjects.forEach(s => row[s]=0);
+    sessions.filter(s=>s.date===date).forEach(s=>{
+      if(row[s.subject]!==undefined) row[s.subject]+=s.durationSec/3600;
+    });
+    return row;
+  });
+
+  const totals = matrix.map(r=>Object.values(r).reduce((a,b)=>a+b,0));
+  const maxVal = Math.max(...totals)||1;
+  const allUnderHour = maxVal < 1;
+  drawGrid(ctx,PAD_L,PAD_R,PAD_T,PAD_B,W,H,maxVal,
+    allUnderHour ? v=>Math.round(v*60)+'m' : v=>v.toFixed(1)+'h');
+
+  const colors = ['#4fc3f7','#80d4f0','#f0c060','#f08080','#b080f0',
+                  '#80f0b0','#f0a060','#60b0f0','#f080c0','#a0f060'];
+  const barW = Math.min(chartW/7-8,32);
+  const gap  = chartW/7;
+
+  matrix.forEach((row,i) => {
+    const x = PAD_L + gap*i + gap/2 - barW/2;
+    let yOff = PAD_T + chartH;
+    subjects.forEach((subj,si) => {
+      const val = row[subj]; if(!val) return;
+      const bH = (val/maxVal)*chartH;
+      yOff -= bH;
+      ctx.fillStyle = colors[si%colors.length];
+      ctx.beginPath(); ctx.roundRect(x,yOff,barW,bH,2); ctx.fill();
+    });
+    ctx.fillStyle='#888'; ctx.font=`10px ${getComputedStyle(document.body).fontFamily}`;
+    ctx.textAlign='center';
+    ctx.fillText(dayLabels[i], x+barW/2, H-PAD_B+14);
+  });
+}
+
+// ── Monthly Line ──
+function renderMonthlyLine() {
+  if (statTab !== 'monthly') return;
+  const canvas = document.getElementById('line-chart');
+  const H = 140;
+  const { ctx, W } = initCanvas(canvas, H);
+  const PAD_L=36, PAD_R=10, PAD_T=10, PAD_B=20;
+  const chartW=W-PAD_L-PAD_R, chartH=H-PAD_T-PAD_B;
+
+  const now = nowIST();
+  const todayDay = now.getUTCDate();
+  const daysInMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth()+1, 0)).getUTCDate();
+  const monthPrefix = todayStr().slice(0,7);
+
+  const daily = [];
+  for (let d=1; d<=daysInMonth; d++) {
+    const dateStr = `${monthPrefix}-${String(d).padStart(2,'0')}`;
+    const sec = sessions.filter(s=>s.date===dateStr).reduce((a,s)=>a+s.durationSec,0);
+    daily.push(sec/3600);
+  }
+
+  const maxVal = Math.max(...daily.slice(0,todayDay))||1;
+  const allUnderHour = maxVal < 1;
+  drawGrid(ctx,PAD_L,PAD_R,PAD_T,PAD_B,W,H,maxVal,
+    allUnderHour ? v=>Math.round(v*60)+'m' : v=>v.toFixed(1)+'h');
+
+  // only draw up to today
+  const activeDays = daily.slice(0, todayDay);
+  const stepX = chartW / (daysInMonth - 1 || 1);
+
+  // fill
+  ctx.beginPath();
+  activeDays.forEach((val,i) => {
+    const x = PAD_L + i*stepX;
+    const y = PAD_T + chartH - (val/maxVal)*chartH;
+    i===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+  });
+  // close fill only to today's x, not end of month
+  const lastX = PAD_L + (activeDays.length-1)*stepX;
+  ctx.lineTo(lastX, PAD_T+chartH);
+  ctx.lineTo(PAD_L, PAD_T+chartH);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(79,195,247,0.12)';
+  ctx.fill();
+
+  // line
+  ctx.beginPath();
+  ctx.strokeStyle = '#4fc3f7'; ctx.lineWidth = 1.5;
+  activeDays.forEach((val,i) => {
+    const x = PAD_L + i*stepX;
+    const y = PAD_T + chartH - (val/maxVal)*chartH;
+    i===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+  });
+  ctx.stroke();
+}
+
+// ── Heatmap ──
+function renderHeatmap() {
+  const subj = chartViews.hm === 'single'
+    ? document.getElementById('hm-subj-select').value : null;
+  const [from, to] = getDateRange(statTab);
+  const hourTotals = new Array(24).fill(0);
+  sessions
+    .filter(s => s.date>=from && s.date<=to && (!subj || s.subject===subj))
+    .forEach(s => { hourTotals[s.startHour] += s.durationSec; });
+
+  const grid = document.getElementById('heatmap-grid');
+  grid.innerHTML = '';
+  const maxH = Math.max(...hourTotals)||1;
+  for (let h=0; h<24; h++) {
+    const cell = document.createElement('div');
+    cell.className = 'hm-cell';
+    const intensity = hourTotals[h]/maxH;
+    if (intensity > 0) {
+      cell.style.background = `rgba(79,195,247,${(0.15+intensity*0.85).toFixed(2)})`;
+    }
+    cell.title = `${h}:00 — ${secToHM(hourTotals[h])}`;
+    grid.appendChild(cell);
+  }
+  const peakHour = hourTotals.indexOf(Math.max(...hourTotals));
+  document.getElementById('peak-hour-line').textContent =
+    hourTotals[peakHour]>0 ? `Peak study hour: ${formatHour(peakHour)}` : 'Peak study hour: —';
+}
+
+// ── Completion Bars ──
+function renderCompletionBars() {
+  const subj = chartViews.comp === 'single'
+    ? document.getElementById('comp-subj-select').value : null;
+  const [from, to] = getDateRange(statTab);
+  const wrap = document.getElementById('completion-bars');
+  wrap.innerHTML = '';
+  const toShow = subj ? [subj] : subjects;
+  toShow.forEach(s => {
+    const ss = sessions.filter(x => x.subject===s && x.date>=from && x.date<=to && x.done!==null);
+    if (!ss.length) return;
+    const done = ss.filter(x=>x.done===true).length;
+    const pct  = Math.round((done/ss.length)*100);
+    const row  = document.createElement('div');
+    row.className = 'completion-row';
+    row.innerHTML = `
+      <div class="completion-subject">${s}</div>
+      <div class="completion-bar-wrap"><div class="completion-bar-fill" style="width:${pct}%"></div></div>
+      <div class="completion-pct">${pct}%</div>`;
+    wrap.appendChild(row);
+  });
+  if (!wrap.children.length) {
+    wrap.innerHTML = '<div style="color:#444;font-size:12px;text-align:center;padding:12px 0">No rated sessions yet</div>';
+  }
+}
+
+// ── Tab wiring ──
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.onclick = function() {
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+    this.classList.add('active');
+    statTab = this.dataset.tab;
+    renderStats();
+  };
+});
+
+// ── Per-chart toggle wiring ──
+wireChartToggle('bar-toggle',  'bar-subj-select',  'bar',  renderBarChart);
+wireChartToggle('dist-toggle', 'dist-subj-select', 'dist', renderDistChart);
+wireChartToggle('hm-toggle',   'hm-subj-select',   'hm',   renderHeatmap);
+wireChartToggle('comp-toggle', 'comp-subj-select', 'comp', renderCompletionBars);
+
+// ═══════════════════════════════════════════
+// PWA
+// ═══════════════════════════════════════════
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(()=>{});
+  });
+}
+
+// ═══════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════
+
+(function init() {
+  timerMode = settings.mode || 'pomodoro';
+  document.querySelectorAll('.mode-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.mode === timerMode);
+  });
+  populateSubjectSelects();
+  populateTargetSubjectSelect();
+  resetDisplay();
+  markDayUsed();
+  maybeResetTargets();
+  renderTargetsCard();
+})();
+</script>
+</body>
+</html>
