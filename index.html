@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#0a0a0a" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black" />
@@ -30,6 +30,18 @@
     #app { display: flex; flex-direction: column; height: 100vh; max-width: 480px; margin: 0 auto; position: relative; overflow: hidden; }
     .screen { display: none; flex-direction: column; flex: 1; overflow-y: auto; overflow-x: hidden; padding-bottom: 72px; -webkit-overflow-scrolling: touch; }
     .screen.active { display: flex; }
+    #login-overlay { position: fixed; inset: 0; z-index: 500; background: var(--bg); display: none; flex-direction: column; justify-content: center; padding: 24px; overflow-y: auto; }
+    #login-overlay.active { display: flex; }
+    .login-card { max-width: 360px; width: 100%; margin: 0 auto; }
+    .login-title { font-size: 20px; font-weight: 700; margin-bottom: 6px; color: var(--text); }
+    .login-sub { font-size: 13px; color: var(--text-dim); margin-bottom: 24px; line-height: 1.4; }
+    .login-divider { display: flex; align-items: center; gap: 10px; margin: 20px 0; color: var(--text-faint); font-size: 11px; letter-spacing: 0.5px; text-transform: uppercase; }
+    .login-divider::before, .login-divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+    .account-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm); margin-bottom: 8px; cursor: pointer; }
+    .account-row:active { opacity: 0.7; }
+    .account-row-name { font-weight: 600; font-size: 14px; }
+    .account-row-code { font-size: 11px; color: var(--text-faint); font-family: monospace; letter-spacing: 0.5px; margin-top: 2px; }
+    .account-row-badge { font-size: 10px; color: var(--accent); border: 1px solid var(--accent); border-radius: 20px; padding: 2px 8px; }
     #nav { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 480px; display: flex; background: var(--surface); border-top: 1px solid var(--border); z-index: 100; }
     .nav-btn { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 10px 0 12px; background: none; border: none; color: var(--text-dim); font-size: 10px; letter-spacing: 0.5px; text-transform: uppercase; cursor: pointer; gap: 4px; transition: color 0.15s; }
     .nav-btn.active { color: var(--accent); }
@@ -141,6 +153,22 @@
 <body>
 <div id="app">
 
+  <!-- LOGIN OVERLAY -->
+  <div id="login-overlay">
+    <div class="login-card">
+      <div id="login-step-username">
+        <div class="login-title">Welcome to FocusTrap</div>
+        <div class="login-sub">Set a username to create your account on this device.</div>
+        <input class="input-field" id="login-username-input" type="text" placeholder="Choose a username…" maxlength="30" />
+        <button class="small-btn" id="btn-login-create" style="width:100%;margin-top:12px;padding:12px;">Create My Account</button>
+        <div class="login-divider">or</div>
+        <input class="input-field" id="login-code-input" type="text" placeholder="Enter an existing code…" maxlength="20" style="font-family:monospace;" />
+        <button class="small-btn" id="btn-login-with-code" style="width:100%;margin-top:8px;padding:12px;">Log In With Code</button>
+        <div id="login-status" style="font-size:12px;color:var(--text-faint);margin-top:10px;text-align:center;"></div>
+      </div>
+    </div>
+  </div>
+
   <!-- TIMER SCREEN -->
   <div id="screen-timer" class="screen active">
     <div class="screen-header">
@@ -150,6 +178,7 @@
       <button class="mode-btn active" data-mode="pomodoro">Pomodoro</button>
       <button class="mode-btn" data-mode="ultradian">Ultradian</button>
     </div>
+    <div id="rhythm-hint" style="margin:6px 16px 0;font-size:11px;color:var(--text-faint);letter-spacing:0.3px;"></div>
     <div class="card">
       <div class="card-label">Session Setup</div>
       <div class="select-wrap">
@@ -325,6 +354,30 @@
         <button class="small-btn" id="btn-add-target">Add</button>
       </div>
     </div>
+    <div class="settings-group">
+      <div class="settings-group-label">Account</div>
+      <div id="account-panel">
+        <div class="setting-row" style="flex-direction:column;align-items:flex-start;gap:4px;">
+          <div class="setting-row-label">Logged in as</div>
+          <div id="account-current-username" style="font-size:16px;font-weight:700;"></div>
+          <div style="display:flex;gap:8px;align-items:center;margin-top:4px;width:100%;">
+            <code id="account-current-code" style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 10px;font-size:13px;letter-spacing:1px;color:var(--accent);word-break:break-all;"></code>
+            <button class="small-btn" id="btn-copy-account-code">Copy</button>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:10px;">
+          <button class="small-btn" id="btn-account-sync-now">↑↓ Sync Now</button>
+          <button class="small-btn" id="btn-account-switch">Switch Account</button>
+        </div>
+        <div id="account-sync-status" style="font-size:11px;color:var(--text-faint);margin-top:8px;"></div>
+        <div id="account-switch-panel" style="display:none;margin-top:14px;border-top:1px solid var(--border);padding-top:14px;">
+          <div style="font-size:11px;color:var(--text-dim);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px;">Switch to</div>
+          <div id="account-known-list"></div>
+          <input class="input-field" id="account-login-code-input" type="text" placeholder="Or enter a new code…" maxlength="20" style="margin-top:8px;font-family:monospace;" />
+          <button class="small-btn" id="btn-account-login-code" style="width:100%;margin-top:8px;">Log In With This Code</button>
+        </div>
+      </div>
+    </div>
     <div style="height:20px;"></div>
   </div>
 
@@ -397,6 +450,12 @@ function saveData(key, val) {
 let settings    = loadData('ft_settings', { mode:'pomodoro', pomo:{sprint:25,short:5,long:15,rounds:4}, ultr:{sprint:90,brk:20} });
 let subjects    = loadData('ft_subjects', [...DEFAULT_SUBJECTS]);
 let sessions    = loadData('ft_sessions', []);
+(function pruneOldSessions() {
+  const cutoff = new Date(nowIST().getTime() - 366 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const before = sessions.length;
+  sessions = sessions.filter(s => s.date >= cutoff);
+  if (sessions.length !== before) saveData('ft_sessions', sessions);
+})();
 let pushupState = loadData('ft_pushup',   { level:10, totalMisses:0, totalPushups:0, log:[] });
 let daysUsed    = loadData('ft_daysused', []);
 // targets: { overall: hours, subjects: { SubjectName: hours }, lastReset: 'YYYY-MM-DD' }
@@ -461,6 +520,327 @@ function beep(freq=880, dur=0.3, vol=0.4) {
 function beepSprintEnd() { beep(880,0.2,0.5); setTimeout(()=>beep(1100,0.3,0.5),250); }
 function beepBreakEnd()  { beep(660,0.2,0.4); setTimeout(()=>beep(880,0.3,0.4),250); }
 
+function showNotification(title, body) {
+  if (!('Notification' in window)) return;
+  if (Notification.permission === 'granted') {
+    new Notification(title, { body, icon: './icon-192.png', badge: './icon-192.png' });
+  } else if (Notification.permission !== 'denied') {
+    Notification.requestPermission().then(p => {
+      if (p === 'granted') new Notification(title, { body, icon: './icon-192.png' });
+    });
+  }
+}
+
+function updateRhythmHint() {
+  const el = document.getElementById('rhythm-hint');
+  if (!el) return;
+  if (timerMode === 'pomodoro') {
+    const s = settings.pomo;
+    const next = s.rounds - ((pomoRound - 1) % s.rounds);
+    el.textContent = `${s.sprint}min sprint · ${s.short}min short break · long break every ${s.rounds} sprints · next long break in ${next} sprint${next===1?'':'s'}`;
+  } else {
+    const s = settings.ultr;
+    el.textContent = `${s.sprint}min deep work · ${s.brk}min recovery · based on ultradian rhythm`;
+  }
+}
+
+// ── Account System ──
+// Each "account" = { code, username, gistId, sessions, subjects, targets, settings, daysUsed, pushupState }
+// Stored locally as ft_account_<code>. ft_active_code points to the live one.
+// ft_known_accounts = [{code, username}] for the switcher list.
+const ACCOUNT_VERSION = 1;
+
+function loadKnownAccounts() {
+  return loadData('ft_known_accounts', []);
+}
+function saveKnownAccounts(list) {
+  saveData('ft_known_accounts', list);
+}
+function rememberAccount(code, username) {
+  const list = loadKnownAccounts().filter(a => a.code !== code);
+  list.unshift({ code, username });
+  saveKnownAccounts(list);
+}
+
+// Set this once to your deployed Worker's URL, e.g. 'https://focustrap-sync.yourname.workers.dev'
+const SYNC_WORKER_URL = 'https://black-dust-c50d.abhrachakraborty21.workers.dev';
+
+// Bundle the live in-memory state into one object
+function snapshotLiveState() {
+  return { sessions, subjects, targets, settings, daysUsed, pushupState };
+}
+// Push a bundle into the live in-memory state and re-render everything
+function applyLiveState(bundle) {
+  sessions    = bundle.sessions    || [];
+  subjects    = bundle.subjects    || [...DEFAULT_SUBJECTS];
+  targets     = bundle.targets     || { overall: 0, subjects: {}, lastReset: '' };
+  settings    = bundle.settings    || { mode:'pomodoro', pomo:{sprint:25,short:5,long:15,rounds:4}, ultr:{sprint:90,brk:20} };
+  daysUsed    = bundle.daysUsed    || [];
+  pushupState = bundle.pushupState || { level:10, totalMisses:0, totalPushups:0, log:[] };
+  saveData('ft_sessions', sessions);
+  saveData('ft_subjects', subjects);
+  saveData('ft_targets', targets);
+  saveData('ft_settings', settings);
+  saveData('ft_daysused', daysUsed);
+  saveData('ft_pushup', pushupState);
+}
+
+function saveActiveAccountLocally() {
+  const code = loadData('ft_active_code', null);
+  if (!code) return;
+  const existing = loadData('ft_account_' + code, {});
+  saveData('ft_account_' + code, Object.assign({}, existing, snapshotLiveState()));
+}
+
+// ── Worker calls (no token ever lives in this app) ──
+async function workerCreateAccount(username) {
+  const r = await fetch(SYNC_WORKER_URL + '/create', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username })
+  });
+  const data = await r.json();
+  if (!r.ok) throw new Error(data.error || 'Create failed');
+  return data.code;
+}
+async function workerFetchAccount(code) {
+  const r = await fetch(SYNC_WORKER_URL + '/account/' + encodeURIComponent(code));
+  const data = await r.json();
+  if (!r.ok) throw new Error(data.error || 'Fetch failed');
+  return data;
+}
+async function workerPushAccount(code, payload) {
+  const r = await fetch(SYNC_WORKER_URL + '/account/' + encodeURIComponent(code), {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  const data = await r.json();
+  if (!r.ok) throw new Error(data.error || 'Push failed');
+  return data;
+}
+
+// Create a brand-new account — registers with the Worker so the code is shareable immediately
+async function createNewAccount(username) {
+  const code = await workerCreateAccount(username);
+  const bundle = { username, sessions: [], subjects: [...DEFAULT_SUBJECTS], targets: { overall: 0, subjects: {}, lastReset: '' },
+    settings: { mode:'pomodoro', pomo:{sprint:25,short:5,long:15,rounds:4}, ultr:{sprint:90,brk:20} }, daysUsed: [], pushupState: { level:10, totalMisses:0, totalPushups:0, log:[] } };
+  saveData('ft_account_' + code, bundle);
+  saveData('ft_active_code', code);
+  rememberAccount(code, username);
+  applyLiveState(bundle);
+  return code;
+}
+
+// Migration path: old user already has live data but no account system yet.
+// Registers a fresh Worker account too, so this device's history becomes shareable right away.
+async function migrateExistingUserToAccount() {
+  const username = 'My Account';
+  let code;
+  try {
+    code = await workerCreateAccount(username);
+  } catch (e) {
+    // Offline at migration time — keep working locally; will register on next successful sync.
+    code = null;
+  }
+  const bundle = Object.assign({ username }, snapshotLiveState());
+  const localCode = code || ('LOCAL-' + Math.random().toString(36).slice(2, 8).toUpperCase());
+  saveData('ft_account_' + localCode, bundle);
+  saveData('ft_active_code', localCode);
+  rememberAccount(localCode, username);
+  return localCode;
+}
+
+// Log into (switch to) a code — always fetches fresh from the Worker so it's the real "account" data
+async function loginWithCode(code) {
+  code = code.trim().toUpperCase();
+  saveActiveAccountLocally(); // save current account's live state before switching away
+  const bundle = await workerFetchAccount(code); // throws if code unknown — caller should handle
+  saveData('ft_account_' + code, bundle);
+  saveData('ft_active_code', code);
+  rememberAccount(code, bundle.username || 'Account');
+  applyLiveState(bundle);
+  return bundle;
+}
+
+function getActiveAccount() {
+  const code = loadData('ft_active_code', null);
+  if (!code) return null;
+  return { code, bundle: loadData('ft_account_' + code, null) };
+}
+
+function setSyncStatus(msg) {
+  const el = document.getElementById('account-sync-status');
+  if (el) el.textContent = msg;
+  const el2 = document.getElementById('login-status');
+  if (el2) el2.textContent = msg;
+}
+
+async function syncActiveAccount() {
+  const code = loadData('ft_active_code', null);
+  if (!code) return;
+  saveActiveAccountLocally();
+  const bundle = loadData('ft_account_' + code, null);
+  if (!bundle) return;
+  if (code.startsWith('LOCAL-')) {
+    setSyncStatus('Trying to register offline copy…');
+    try {
+      const bundle = loadData('ft_account_' + code, null);
+      const username = (bundle && bundle.username) || 'My Account';
+      const newCode = await workerCreateAccount(username);
+      const newBundle = Object.assign({}, bundle);
+      saveData('ft_account_' + newCode, newBundle);
+      saveData('ft_active_code', newCode);
+      rememberAccount(newCode, username);
+      localStorage.removeItem('ft_account_' + code);
+      setSyncStatus('Now online — new code: ' + newCode);
+      renderAccountPanel();
+    } catch (e) {
+      setSyncStatus('Offline copy — will register once back online.');
+    }
+    return;
+  }
+  setSyncStatus('Syncing…');
+  try {
+    const payload = { username: bundle.username, sessions: bundle.sessions, subjects: bundle.subjects, targets: bundle.targets, settings: bundle.settings, daysUsed: bundle.daysUsed, pushupState: bundle.pushupState };
+    const result = await workerPushAccount(code, payload);
+    if (result.sessions)    { bundle.sessions    = result.sessions;    sessions    = result.sessions;    saveData('ft_sessions', sessions); }
+    if (result.subjects)    { bundle.subjects    = result.subjects;    subjects    = result.subjects;    saveData('ft_subjects', subjects); }
+    if (result.targets)     { bundle.targets     = result.targets;     targets     = result.targets;     saveData('ft_targets', targets); }
+    if (result.settings)    { bundle.settings    = result.settings;    settings    = result.settings;    saveData('ft_settings', settings); }
+    if (result.daysUsed)    { bundle.daysUsed    = result.daysUsed;    daysUsed    = result.daysUsed;    saveData('ft_daysused', daysUsed); }
+    if (result.pushupState) { bundle.pushupState = result.pushupState; pushupState = result.pushupState; saveData('ft_pushup', pushupState); }
+    saveData('ft_account_' + code, bundle);
+    setSyncStatus('Synced · ' + new Date().toLocaleTimeString());
+  } catch (e) {
+    setSyncStatus('Sync failed: ' + e.message);
+  }
+}
+
+function renderAccountPanel() {
+  const active = getActiveAccount();
+  if (!active || !active.bundle) return;
+  const userEl = document.getElementById('account-current-username');
+  const codeEl = document.getElementById('account-current-code');
+  if (userEl) userEl.textContent = active.bundle.username || 'Account';
+  if (codeEl) codeEl.textContent = active.code;
+  renderKnownAccountsList();
+}
+
+function renderKnownAccountsList() {
+  const wrap = document.getElementById('account-known-list');
+  if (!wrap) return;
+  const active = loadData('ft_active_code', null);
+  const known = loadKnownAccounts().filter(a => a.code !== active);
+  wrap.innerHTML = '';
+  if (known.length === 0) {
+    wrap.innerHTML = '<div style="font-size:12px;color:var(--text-faint);">No other accounts on this device yet.</div>';
+    return;
+  }
+  known.forEach(a => {
+    const row = document.createElement('div');
+    row.className = 'account-row';
+    row.innerHTML = `<div><div class="account-row-name">${a.username}</div><div class="account-row-code">${a.code}</div></div><span class="account-row-badge">Switch</span>`;
+    row.onclick = async () => {
+      try { await loginWithCode(a.code); renderAccountPanel(); document.getElementById('account-switch-panel').style.display = 'none'; }
+      catch (e) { alert('Could not switch: ' + e.message); }
+    };
+    wrap.appendChild(row);
+  });
+}
+
+function initAccountUI() {
+  const copyBtn = document.getElementById('btn-copy-account-code');
+  if (copyBtn) copyBtn.onclick = function() {
+    const active = getActiveAccount();
+    if (!active) return;
+    navigator.clipboard.writeText(active.code).then(() => {
+      this.textContent = 'Copied!'; setTimeout(() => this.textContent = 'Copy', 1500);
+    });
+  };
+  const syncBtn = document.getElementById('btn-account-sync-now');
+  if (syncBtn) syncBtn.onclick = syncActiveAccount;
+  const switchToggle = document.getElementById('btn-account-switch');
+  if (switchToggle) switchToggle.onclick = function() {
+    const panel = document.getElementById('account-switch-panel');
+    const open = panel.style.display !== 'none';
+    panel.style.display = open ? 'none' : '';
+    if (!open) renderKnownAccountsList();
+  };
+  const loginCodeBtn = document.getElementById('btn-account-login-code');
+  if (loginCodeBtn) loginCodeBtn.onclick = async function() {
+    const v = document.getElementById('account-login-code-input').value.trim();
+    if (!v) return;
+    this.textContent = 'Logging in…'; this.disabled = true;
+    try {
+      await loginWithCode(v);
+      renderAccountPanel();
+      document.getElementById('account-login-code-input').value = '';
+      document.getElementById('account-switch-panel').style.display = 'none';
+    } catch (e) { alert('Login failed: ' + e.message); }
+    this.textContent = 'Log In With This Code'; this.disabled = false;
+  };
+  renderAccountPanel();
+}
+
+// Login overlay (first-run gate for brand-new users only)
+function showLoginOverlay() {
+  document.getElementById('login-overlay').classList.add('active');
+}
+function hideLoginOverlay() {
+  document.getElementById('login-overlay').classList.remove('active');
+}
+function initLoginOverlay() {
+  const createBtn = document.getElementById('btn-login-create');
+  const codeBtn = document.getElementById('btn-login-with-code');
+  if (createBtn) createBtn.onclick = async function() {
+    const name = document.getElementById('login-username-input').value.trim();
+    if (!name) { setSyncStatus('Enter a username first.'); return; }
+    this.textContent = 'Creating…'; this.disabled = true;
+    try {
+      await createNewAccount(name);
+      hideLoginOverlay();
+      location.reload();
+    } catch (e) {
+      setSyncStatus('Could not create account: ' + e.message);
+      this.textContent = 'Create My Account'; this.disabled = false;
+    }
+  };
+  if (codeBtn) codeBtn.onclick = async function() {
+    const code = document.getElementById('login-code-input').value.trim();
+    if (!code) return;
+    this.textContent = 'Logging in…'; this.disabled = true;
+    try {
+      await loginWithCode(code);
+      hideLoginOverlay();
+      location.reload();
+    } catch (e) {
+      setSyncStatus('Login failed: ' + e.message);
+    }
+    this.textContent = 'Log In With Code'; this.disabled = false;
+  };
+}
+
+// Decide on load: new user (show overlay), old user (silent migrate), or already set up
+async function initAccountSystem() {
+  initLoginOverlay();
+  let activeCode = loadData('ft_active_code', null);
+  if (!activeCode) {
+    const hasOldData = sessions.length > 0 || daysUsed.length > 0 || subjects.length !== DEFAULT_SUBJECTS.length;
+    if (hasOldData) {
+      activeCode = await migrateExistingUserToAccount();
+    } else {
+      showLoginOverlay();
+      return; // wait for user to create/login
+    }
+  } else {
+    const bundle = loadData('ft_account_' + activeCode, null);
+    if (bundle) applyLiveState(bundle);
+  }
+  initAccountUI();
+  syncActiveAccount();
+}
+
+window.addEventListener('beforeunload', saveActiveAccountLocally);
+
 // ═══════════════════════════════════════════
 // TIMER STATE
 // ═══════════════════════════════════════════
@@ -478,6 +858,25 @@ let sprintSubject = '';
 let sprintTask    = '';
 let distractCount = 0;
 let elapsedSec    = 0;  // actual elapsed seconds this sprint
+let _tickRef      = null; // wall-clock anchor for drift correction
+
+function saveTimerState() {
+  if (running && phase === 'sprint') {
+    saveData('ft_timer', {
+      phase, secondsLeft, totalSeconds, elapsedSec,
+      distractCount, pomoRound, timerMode,
+      sprintSubject, sprintTask,
+      sprintStart: sprintStart ? sprintStart.toISOString() : null,
+      wallAnchor: Date.now()
+    });
+  } else {
+    localStorage.removeItem('ft_timer');
+  }
+}
+
+function clearTimerState() {
+  localStorage.removeItem('ft_timer');
+}
 
 function getSprintSec() {
   return timerMode === 'pomodoro' ? settings.pomo.sprint * 60 : settings.ultr.sprint * 60;
@@ -559,6 +958,7 @@ function startTimer() {
   if (phase === 'sprint') {
     document.getElementById('distraction-wrap').classList.add('visible');
   }
+  _tickRef = Date.now();
   clearInterval(interval);
   interval = setInterval(tick, 1000);
 }
@@ -584,6 +984,7 @@ function resumeTimer() {
   }
   running = true;
   paused = false;
+  _tickRef = Date.now();
   const btn = document.getElementById('btn-pause');
   btn.textContent = 'Pause';
   btn.onclick = pauseTimer;
@@ -631,15 +1032,29 @@ function showControls(state) {
 }
 
 function tick() {
+  // Wall-clock drift correction
+  const now = Date.now();
+  if (_tickRef) {
+    const driftSec = Math.round((now - _tickRef) / 1000) - 1;
+    if (driftSec > 0) {
+      secondsLeft = Math.max(0, secondsLeft - driftSec);
+      if (phase === 'sprint') elapsedSec = Math.min(elapsedSec + driftSec, totalSeconds);
+    }
+  }
+  _tickRef = now;
+
   if (secondsLeft > 0) {
     secondsLeft--;
     if (phase === 'sprint') elapsedSec++;
     updateClockUI();
+    if (phase === 'sprint') saveTimerState();
   } else {
     clearInterval(interval);
+    clearTimerState();
     running = false;
     if (phase === 'sprint') {
       beepSprintEnd();
+      showNotification('Sprint complete!', sprintSubject + ' — rate your session.');
       saveSession({
         id: Date.now(),
         date: todayStr(),
@@ -656,12 +1071,14 @@ function tick() {
       showWorkDoneModal();
     } else {
       beepBreakEnd();
+      showNotification('Break over!', 'Time for your next sprint.');
       if (timerMode === 'pomodoro') pomoRound++;
       phase = 'sprint';
       secondsLeft = getSprintSec();
       totalSeconds = secondsLeft;
       elapsedSec = 0;
       distractCount = 0;
+      _tickRef = null;
       document.title = 'FocusTrap';
       updateClockUI();
       showControls('idle');
@@ -762,6 +1179,7 @@ function startBreak() {
   updateClockUI();
   running = true;
   showControls('running');
+  _tickRef = Date.now();
   clearInterval(interval);
   interval = setInterval(tick, 1000);
 }
@@ -857,6 +1275,7 @@ function renderSettings() {
     settings.ultr.brk    = +document.getElementById('set-ultr-break').value  || 20;
     saveData('ft_settings', settings);
     if (!running && !paused) resetDisplay();
+    updateRhythmHint();
   });
 });
 
@@ -877,9 +1296,16 @@ function renderSubjectChips() {
   });
   wrap.querySelectorAll('.chip-del').forEach(btn => {
     btn.onclick = function() {
+      const removed = subjects[+this.dataset.i];
       subjects.splice(+this.dataset.i, 1);
       saveData('ft_subjects', subjects);
+      if (removed && targets.subjects[removed] !== undefined) {
+        delete targets.subjects[removed];
+        saveData('ft_targets', targets);
+      }
       renderSubjectChips();
+      renderTargetList();
+      renderTargetsCard();
       populateSubjectSelects();
       populateTargetSubjectSelect();
     };
@@ -915,7 +1341,7 @@ function renderTargetList() {
     row.className = 'target-setting-row';
     row.innerHTML = `
       <span class="target-setting-label">${subj}</span>
-      <span class="target-setting-unit">${h}h / week</span>
+      <span class="target-setting-unit">${h}h / day</span>
       <button class="target-del-btn" data-subj="${subj}">×</button>`;
     list.appendChild(row);
   });
@@ -984,11 +1410,19 @@ document.querySelectorAll('.mode-btn').forEach(btn => {
     saveData('ft_settings', settings);
     pomoRound = 1;
     resetDisplay();
+    updateRhythmHint();
   };
 });
 
 document.getElementById('btn-start').onclick = startTimer;
-document.getElementById('btn-stop').onclick   = stopTimer;
+document.getElementById('btn-stop').onclick = function() {
+  if (phase === 'sprint' && elapsedSec > 0 && elapsedSec < 600) {
+    if (!confirm('Less than 10 min elapsed — session won\'t be saved. Stop anyway?')) return;
+  } else if (phase === 'sprint' && elapsedSec >= 600) {
+    if (!confirm('Stop sprint? Partial session will be saved.')) return;
+  }
+  stopTimer();
+};
 
 // ═══════════════════════════════════════════
 // STATS HELPERS
@@ -1418,6 +1852,24 @@ wireChartToggle('comp-toggle', 'comp-subj-select', 'comp', renderCompletionBars)
 // PWA
 // ═══════════════════════════════════════════
 
+// ctx.roundRect polyfill for Safari <16 / old WebViews
+if (!CanvasRenderingContext2D.prototype.roundRect) {
+  CanvasRenderingContext2D.prototype.roundRect = function(x, y, w, h, r) {
+    r = Math.min(r, w/2, h/2);
+    this.moveTo(x+r, y);
+    this.lineTo(x+w-r, y);
+    this.arcTo(x+w, y, x+w, y+r, r);
+    this.lineTo(x+w, y+h-r);
+    this.arcTo(x+w, y+h, x+w-r, y+h, r);
+    this.lineTo(x+r, y+h);
+    this.arcTo(x, y+h, x, y+h-r, r);
+    this.lineTo(x, y+r);
+    this.arcTo(x, y, x+r, y, r);
+    this.closePath();
+    return this;
+  };
+}
+
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('./sw.js').catch(()=>{});
@@ -1428,7 +1880,12 @@ if ('serviceWorker' in navigator) {
 // INIT
 // ═══════════════════════════════════════════
 
-(function init() {
+(async function init() {
+  await initAccountSystem();
+  // If a brand-new user is staring at the login overlay, stop here —
+  // the overlay's own handlers reload the page once an account exists.
+  if (document.getElementById('login-overlay').classList.contains('active')) return;
+
   timerMode = settings.mode || 'pomodoro';
   document.querySelectorAll('.mode-btn').forEach(b => {
     b.classList.toggle('active', b.dataset.mode === timerMode);
@@ -1439,6 +1896,47 @@ if ('serviceWorker' in navigator) {
   markDayUsed();
   maybeResetTargets();
   renderTargetsCard();
+  updateRhythmHint();
+
+  // Request notification permission early
+  if ('Notification' in window && Notification.permission === 'default') {
+    Notification.requestPermission();
+  }
+
+  // Restore in-progress timer if app was killed mid-sprint
+  const saved = loadData('ft_timer', null);
+  if (saved) {
+    const elapsed = Math.round((Date.now() - saved.wallAnchor) / 1000);
+    const adjusted = Math.max(0, saved.secondsLeft - elapsed);
+    if (adjusted > 0 && saved.phase === 'sprint') {
+      timerMode     = saved.timerMode;
+      phase         = saved.phase;
+      secondsLeft   = adjusted;
+      totalSeconds  = saved.totalSeconds;
+      elapsedSec    = saved.elapsedSec + elapsed;
+      distractCount = saved.distractCount;
+      pomoRound     = saved.pomoRound;
+      sprintSubject = saved.sprintSubject;
+      sprintTask    = saved.sprintTask;
+      sprintStart   = saved.sprintStart ? new Date(saved.sprintStart) : null;
+      document.getElementById('task-input').value = sprintTask;
+      document.getElementById('subject-select').value = sprintSubject;
+      document.querySelectorAll('.mode-btn').forEach(b =>
+        b.classList.toggle('active', b.dataset.mode === timerMode));
+      running = true;
+      paused  = false;
+      showControls('running');
+      updateClockUI();
+      document.getElementById('distraction-wrap').classList.add('visible');
+      document.getElementById('distract-count-lbl').textContent =
+        distractCount + (distractCount === 1 ? ' distraction' : ' distractions');
+      _tickRef = Date.now();
+      clearInterval(interval);
+      interval = setInterval(tick, 1000);
+    } else {
+      clearTimerState();
+    }
+  }
 })();
 </script>
 </body>
