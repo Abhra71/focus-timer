@@ -366,6 +366,10 @@
           </div>
         </div>
         <div style="display:flex;gap:8px;margin-top:10px;">
+          <input class="input-field" id="account-rename-input" type="text" placeholder="Rename account…" maxlength="30" style="flex:1;" />
+          <button class="small-btn" id="btn-account-rename">Save</button>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:8px;">
           <button class="small-btn" id="btn-account-sync-now">↑↓ Sync Now</button>
           <button class="small-btn" id="btn-account-switch">Switch Account</button>
         </div>
@@ -702,6 +706,7 @@ async function syncActiveAccount() {
   try {
     const payload = { username: bundle.username, sessions: bundle.sessions, subjects: bundle.subjects, targets: bundle.targets, settings: bundle.settings, daysUsed: bundle.daysUsed, pushupState: bundle.pushupState };
     const result = await workerPushAccount(code, payload);
+    if (result.username)    { bundle.username    = result.username;    saveData('ft_account_' + code, bundle); document.getElementById('account-current-username').textContent = result.username; }
     if (result.sessions)    { bundle.sessions    = result.sessions;    sessions    = result.sessions;    saveData('ft_sessions', sessions); }
     if (result.subjects)    { bundle.subjects    = result.subjects;    subjects    = result.subjects;    saveData('ft_subjects', subjects); }
     if (result.targets)     { bundle.targets     = result.targets;     targets     = result.targets;     saveData('ft_targets', targets); }
@@ -777,6 +782,18 @@ function initAccountUI() {
       document.getElementById('account-switch-panel').style.display = 'none';
     } catch (e) { alert('Login failed: ' + e.message); }
     this.textContent = 'Log In With This Code'; this.disabled = false;
+  };
+  const renameBtn = document.getElementById('btn-account-rename');
+  if (renameBtn) renameBtn.onclick = function() {
+    const val = document.getElementById('account-rename-input').value.trim();
+    if (!val) return;
+    const active = getActiveAccount();
+    if (!active || !active.bundle) return;
+    active.bundle.username = val;
+    saveData('ft_account_' + active.code, active.bundle);
+    renderAccountPanel();
+    document.getElementById('account-rename-input').value = '';
+    syncActiveAccount();
   };
   renderAccountPanel();
 }
