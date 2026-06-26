@@ -1,4 +1,9 @@
-const CACHE_NAME = 'focustrap-v1';
+// FocusTrap Service Worker — network-first.
+// Always tries to fetch the latest version of every file first.
+// Falls back to the last-cached copy only when there's no network (offline use).
+// No manual version bump needed when you edit/push any file (html, js, css, png, manifest).
+
+const CACHE_NAME = 'focustrap-cache';
 const ASSETS = [
   './',
   './index.html',
@@ -7,15 +12,14 @@ const ASSETS = [
   './icon-512.png'
 ];
 
-// Install — cache all core assets
+// Install — warm the cache so offline works even on first visit
 self.addEventListener('install', event => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => cache.addAll(ASSETS))
+    caches.open(CACHE_NAME).then(cache => cache.addAll(ASSETS)).then(() => self.skipWaiting())
   );
-  self.skipWaiting();
 });
 
-// Activate — delete old caches
+// Activate — clean up any old/renamed caches, take control immediately
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys().then(keys =>
@@ -27,36 +31,31 @@ self.addEventListener('activate', event => {
   self.clients.claim();
 });
 
-// Fetch — cache-first, fall back to network
+// Fetch — network-first, cache as a fallback for offline use
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
 
   event.respondWith(
-    caches.match(event.request).then(cached => {
-      if (cached) return cached;
-
-      return fetch(event.request).then(response => {
-        if (
-          !response ||
-          response.status !== 200 ||
-          response.type === 'opaque'
-        ) {
-          return response;
+    fetch(event.request)
+      .then(response => {
+        if (response && response.status === 200 && response.type !== 'opaque') {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
         }
-
-        const clone = response.clone();
-        caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
         return response;
-      }).catch(() => {
-        if (event.request.mode === 'navigate') {
-          return caches.match('./index.html');
-        }
-      });
-    })
+      })
+      .catch(() =>
+        caches.match(event.request).then(cached => {
+          if (cached) return cached;
+          if (event.request.mode === 'navigate') {
+            return caches.match('./index.html');
+          }
+        })
+      )
   );
 });
 
-// Listen for skip-waiting message (for future updates)
+// Listen for skip-waiting message (kept for compatibility, not required by this strategy)
 self.addEventListener('message', event => {
   if (event.data && event.data.type === 'SKIP_WAITING') {
     self.skipWaiting();
